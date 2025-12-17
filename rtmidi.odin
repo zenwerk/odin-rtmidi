@@ -19,54 +19,55 @@ when RTMIDI_SHARED {
 }
 
 //! \brief Wraps an RtMidi object for C function return statuses.
-RtMidiWrapper :: struct {
+Wrapper :: struct {
 	//! The wrapped RtMidi object.
-	ptr:  rawptr,
-	data: rawptr,
+	ptr:                  rawptr,
+	callback_proxy:       rawptr,
+	error_callback_proxy: rawptr,
 
 	//! True when the last function call was OK.
-	ok:   bool,
+	ok:                   i32,
 
 	//! If an error occurred (ok != true), set to an error message.
-	msg:  cstring,
+	msg:                  cstring,
 }
 
 //! \brief Typedef for a generic RtMidi pointer.
-RtMidiPtr :: ^RtMidiWrapper
+Ptr :: ^Wrapper
 
 //! \brief Typedef for a generic RtMidiIn pointer.
-RtMidiInPtr :: ^RtMidiWrapper
+InPtr :: ^Wrapper
 
 //! \brief Typedef for a generic RtMidiOut pointer.
-RtMidiOutPtr :: ^RtMidiWrapper
+OutPtr :: ^Wrapper
 
-//! \brief MIDI API specifier arguments.  See \ref
-RtMidiApi :: enum c.int {
-	UNSPECIFIED, /*!< Search for a working compiled API. */
-	MACOSX_CORE, /*!< Macintosh OS-X CoreMIDI API. */
-	LINUX_ALSA, /*!< The Advanced Linux Sound Architecture API. */
-	UNIX_JACK, /*!< The Jack Low-Latency MIDI Server API. */
-	WINDOWS_MM, /*!< The Microsoft Multimedia MIDI API. */
-	RTMIDI_DUMMY, /*!< A compilable but non-functional API. */
-	WEB_MIDI_API, /*!< W3C Web MIDI API. */
-	WINDOWS_UWP, /*!< The Microsoft Universal Windows Platform MIDI API. */
-	ANDROID, /*!< The Android MIDI API. */
-	NUM, /*!< Number of values in this enum. */
+//! \brief MIDI API specifier arguments.  See \ref RtMidi::Api.
+Api :: enum u32 {
+	UNSPECIFIED  = 0, /*!< Search for a working compiled API. */
+	MACOSX_CORE  = 1, /*!< Macintosh OS-X CoreMIDI API. */
+	LINUX_ALSA   = 2, /*!< The Advanced Linux Sound Architecture API. */
+	UNIX_JACK    = 3, /*!< The Jack Low-Latency MIDI Server API. */
+	WINDOWS_MM   = 4, /*!< The Microsoft Multimedia MIDI API. */
+	RTMIDI_DUMMY = 5, /*!< A compilable but non-functional API. */
+	WEB_MIDI_API = 6, /*!< W3C Web MIDI API. */
+	WINDOWS_UWP  = 7, /*!< The Microsoft Universal Windows Platform MIDI API. */
+	ANDROID      = 8, /*!< The Android MIDI API. */
+	NUM          = 9, /*!< Number of values in this enum. */
 }
 
-//! \brief Defined RtMidiError types. See \ref
-RtMidiErrorType :: enum c.int {
-	WARNING, /*!< A non-critical error. */
-	DEBUG_WARNING, /*!< A non-critical error which might be useful for debugging. */
-	UNSPECIFIED, /*!< The default, unspecified error type. */
-	NO_DEVICES_FOUND, /*!< No devices found on system. */
-	INVALID_DEVICE, /*!< An invalid device ID was specified. */
-	MEMORY_ERROR, /*!< An error occurred during memory allocation. */
-	INVALID_PARAMETER, /*!< An invalid parameter was specified to a function. */
-	INVALID_USE, /*!< The function was called incorrectly. */
-	DRIVER_ERROR, /*!< A system driver error occurred. */
-	SYSTEM_ERROR, /*!< A system error occurred. */
-	THREAD_ERROR, /*!< A thread error occurred. */
+//! \brief Defined RtMidiError types. See \ref RtMidiError::Type.
+ErrorType :: enum u32 {
+	WARNING           = 0, /*!< A non-critical error. */
+	DEBUG_WARNING     = 1, /*!< A non-critical error which might be useful for debugging. */
+	UNSPECIFIED       = 2, /*!< The default, unspecified error type. */
+	NO_DEVICES_FOUND  = 3, /*!< No devices found on system. */
+	INVALID_DEVICE    = 4, /*!< An invalid device ID was specified. */
+	MEMORY_ERROR      = 5, /*!< An error occurred during memory allocation. */
+	INVALID_PARAMETER = 6, /*!< An invalid parameter was specified to a function. */
+	INVALID_USE       = 7, /*!< The function was called incorrectly. */
+	DRIVER_ERROR      = 8, /*!< A system driver error occurred. */
+	SYSTEM_ERROR      = 9, /*!< A system error occurred. */
+	THREAD_ERROR      = 10, /*!< A thread error occurred. */
 }
 
 /*! \brief The type of a RtMidi callback function.
@@ -77,14 +78,24 @@ RtMidiErrorType :: enum c.int {
 *
 * See \ref RtMidiIn::RtMidiCallback.
 */
-RtMidiCCallback :: proc "c" (_: f64, _: ^u8, _: uint, _: rawptr)
+CCallback :: proc "c" (timeStamp: f64, message: ^u8, messageSize: i32, userData: rawptr)
 
-@(default_calling_convention = "c", link_prefix = "")
+/*! \brief The type of a RtMidi error callback function.
+*
+* \param type        Type of error
+* \param message     Error description
+* \param userData    Additional user data for the callback.
+*
+* See \ref MidiApi::setErrorCallback.
+*/
+ErrorCCallback :: proc "c" (type: ErrorType, errorText: cstring, userData: rawptr)
+
+@(default_calling_convention = "c", link_prefix = "rtmidi_")
 foreign lib {
 	/*! \brief Return the current RtMidi version.
-*! See \ref RtMidi::getVersion().
-*/
-	rtmidi_get_version :: proc() -> cstring ---
+	 *! See \ref RtMidi::getVersion().
+	 */
+	get_version :: proc() -> cstring ---
 
 	/*! \brief Determine the available compiled MIDI APIs.
 	*
@@ -99,22 +110,19 @@ foreign lib {
 	*
 	* See \ref RtMidi::getCompiledApi().
 	*/
-	rtmidi_get_compiled_api :: proc(apis: ^RtMidiApi, apis_size: u32) -> i32 ---
+	get_compiled_api :: proc(apis: ^Api, apis_size: u32) -> i32 ---
 
 	//! \brief Return the name of a specified compiled MIDI API.
-	//! See \ref
-	rtmidi_api_name :: proc(api: RtMidiApi) -> cstring ---
+	//! See \ref RtMidi::getApiName().
+	api_name :: proc(api: Api) -> cstring ---
 
 	//! \brief Return the display name of a specified compiled MIDI API.
-	//! See \ref
-	rtmidi_api_display_name :: proc(api: RtMidiApi) -> cstring ---
+	//! See \ref RtMidi::getApiDisplayName().
+	api_display_name :: proc(api: Api) -> cstring ---
 
 	//! \brief Return the compiled MIDI API having the given name.
-	//! See \ref
-	rtmidi_compiled_api_by_name :: proc(name: cstring) -> RtMidiApi ---
-
-	//! \internal
-	rtmidi_error :: proc(type: RtMidiErrorType, errorString: cstring) ---
+	//! See \ref RtMidi::getCompiledApiByName().
+	compiled_api_by_name :: proc(name: cstring) -> Api ---
 
 	/*! \brief Open a MIDI port.
 	*
@@ -123,7 +131,7 @@ foreign lib {
 	*
 	* See RtMidi::openPort().
 	*/
-	rtmidi_open_port :: proc(device: RtMidiPtr, portNumber: u32, portName: cstring) ---
+	open_port :: proc(device: Ptr, portNumber: u32, portName: cstring) ---
 
 	/*! \brief Creates a virtual MIDI port to which other software applications can
 	* connect.
@@ -132,17 +140,17 @@ foreign lib {
 	*
 	* See RtMidi::openVirtualPort().
 	*/
-	rtmidi_open_virtual_port :: proc(device: RtMidiPtr, portName: cstring) ---
+	open_virtual_port :: proc(device: Ptr, portName: cstring) ---
 
 	/*! \brief Close a MIDI connection.
 	* See RtMidi::closePort().
 	*/
-	rtmidi_close_port :: proc(device: RtMidiPtr) ---
+	close_port :: proc(device: Ptr) ---
 
 	/*! \brief Return the number of available MIDI ports.
 	* See RtMidi::getPortCount().
 	*/
-	rtmidi_get_port_count :: proc(device: RtMidiPtr) -> u32 ---
+	get_port_count :: proc(device: Ptr) -> u32 ---
 
 	/*! \brief Access a string identifier for the specified MIDI input port number.
 	*
@@ -151,10 +159,10 @@ foreign lib {
 	*
 	* See RtMidi::getPortName().
 	*/
-	rtmidi_get_port_name :: proc(device: RtMidiPtr, portNumber: u32, bufOut: cstring, bufLen: ^i32) -> i32 ---
+	get_port_name :: proc(device: Ptr, portNumber: u32, bufOut: cstring, bufLen: ^i32) -> i32 ---
 
 	//! \brief Create a default RtMidiInPtr value, with no initialization.
-	rtmidi_in_create_default :: proc() -> RtMidiInPtr ---
+	in_create_default :: proc() -> InPtr ---
 
 	/*! \brief Create a  RtMidiInPtr value, with given api, clientName and queueSizeLimit.
 	*
@@ -167,26 +175,26 @@ foreign lib {
 	*
 	* See RtMidiIn::RtMidiIn().
 	*/
-	rtmidi_in_create :: proc(api: RtMidiApi, clientName: cstring, queueSizeLimit: u32) -> RtMidiInPtr ---
+	in_create :: proc(api: Api, clientName: cstring, queueSizeLimit: u32) -> InPtr ---
 
 	//! \brief Free the given RtMidiInPtr.
-	rtmidi_in_free :: proc(device: RtMidiInPtr) ---
+	in_free :: proc(device: InPtr) ---
 
 	//! \brief Returns the MIDI API specifier for the given instance of RtMidiIn.
-	//! See \ref
-	rtmidi_in_get_current_api :: proc(device: RtMidiPtr) -> RtMidiApi ---
+	//! See \ref RtMidiIn::getCurrentApi().
+	in_get_current_api :: proc(device: Ptr) -> Api ---
 
 	//! \brief Set a callback function to be invoked for incoming MIDI messages.
-	//! See \ref
-	rtmidi_in_set_callback :: proc(device: RtMidiInPtr, callback: RtMidiCCallback, userData: rawptr) ---
+	//! See \ref RtMidiIn::setCallback().
+	in_set_callback :: proc(device: InPtr, callback: CCallback, userData: rawptr) ---
 
 	//! \brief Cancel use of the current callback function (if one exists).
-	//! See \ref
-	rtmidi_in_cancel_callback :: proc(device: RtMidiInPtr) ---
+	//! See \ref RtMidiIn::cancelCallback().
+	in_cancel_callback :: proc(device: InPtr) ---
 
 	//! \brief Specify whether certain MIDI message types should be queued or ignored during input.
-	//! See \ref
-	rtmidi_in_ignore_types :: proc(device: RtMidiInPtr, midiSysex: bool, midiTime: bool, midiSense: bool) ---
+	//! See \ref RtMidiIn::ignoreTypes().
+	in_ignore_types :: proc(device: InPtr, midiSysex: i32, midiTime: i32, midiSense: i32) ---
 
 	/*! Fill the user-provided array with the data bytes for the next available
 	* MIDI message in the input queue and return the event delta-time in seconds.
@@ -200,10 +208,10 @@ foreign lib {
 	*
 	* See RtMidiIn::getMessage().
 	*/
-	rtmidi_in_get_message :: proc(device: RtMidiInPtr, message: ^u8, size: ^uint) -> f64 ---
+	in_get_message :: proc(device: InPtr, message: ^u8, size: ^i32) -> f64 ---
 
 	//! \brief Create a default RtMidiInPtr value, with no initialization.
-	rtmidi_out_create_default :: proc() -> RtMidiOutPtr ---
+	out_create_default :: proc() -> OutPtr ---
 
 	/*! \brief Create a RtMidiOutPtr value, with given and clientName.
 	*
@@ -214,16 +222,20 @@ foreign lib {
 	*
 	* See RtMidiOut::RtMidiOut().
 	*/
-	rtmidi_out_create :: proc(api: RtMidiApi, clientName: cstring) -> RtMidiOutPtr ---
+	out_create :: proc(api: Api, clientName: cstring) -> OutPtr ---
 
 	//! \brief Free the given RtMidiOutPtr.
-	rtmidi_out_free :: proc(device: RtMidiOutPtr) ---
+	out_free :: proc(device: OutPtr) ---
 
 	//! \brief Returns the MIDI API specifier for the given instance of RtMidiOut.
-	//! See \ref
-	rtmidi_out_get_current_api :: proc(device: RtMidiPtr) -> RtMidiApi ---
+	//! See \ref RtMidiOut::getCurrentApi().
+	out_get_current_api :: proc(device: Ptr) -> Api ---
 
 	//! \brief Immediately send a single message out an open MIDI output port.
-	//! See \ref
-	rtmidi_out_send_message :: proc(device: RtMidiOutPtr, message: ^u8, length: i32) -> i32 ---
+	//! See \ref RtMidiOut::sendMessage().
+	out_send_message :: proc(device: OutPtr, message: ^u8, length: i32) -> i32 ---
+
+	//! \brief Set error callback function on a RtMidiPtr.
+	//! See \ref MidiApi::setErrorCallback().
+	set_error_callback :: proc(device: Ptr, callback: ErrorCCallback, userData: rawptr) ---
 }

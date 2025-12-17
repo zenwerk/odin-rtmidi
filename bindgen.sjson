@@ -1,0 +1,9 @@
+inputs = [
+	"rtmidi_c.h"
+]
+
+output_folder = "odin-rtmidi"
+
+remove_type_prefix = "RtMidi"
+
+remove_function_prefix = "rtmidi_"
